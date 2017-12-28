@@ -4,7 +4,7 @@ Author:  Natan Goldberger
 email: ngoldberger@worldbank.org
 """
 
-import data_airport
+import data_management
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
@@ -493,7 +493,7 @@ class AnalysisTools:
         return exposures
 
 if __name__ == '__main__':
-    dc = data_airport.DataConnect()
+    dc = data_management.DataConnect(path='C:\\Users\\wb514964\\Code\\em-equity\\database\\', database='EMEQ.db')
     at = AnalysisTools()
     portfolio = dc.download_data('performance', columns=['Date', 'Product_ID', 'Return'],
                                  filter_attribute=['Product_ID']

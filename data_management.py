@@ -41,7 +41,6 @@ class DataConnect:
         else:
             if filter_attribute is not None:
                 filter_query = " WHERE " + ' AND '.join(
-                    # [filter_attribute[i] + " IN ('" + "', '".join([values for values in [filter_values[i]]][0]) + "')"
                     [filter_attribute[i] + " IN ('" + "', '".join([values for values in [filter_values]][0]) + "')"
                      for i in range(0, len(filter_attribute))])
             else:
@@ -151,8 +150,8 @@ if __name__ == '__main__':
     # dc.upload_data('identifiers', 'C:\\Users\\wb514964\\Desktop\\upload.xlsx', 'Sheet2')
     # dc.upload_data('performance', 'C:\\Users\\wb514964\\Desktop\\msci.xlsx', 'Sheet1', stack=True,
     #                new_column_names=['Date', 'Product_ID', 'Return'])
-    dc.upload_data('MSCI_indices', 'C:\\Users\\wb514964\\Desktop\\China factors.xlsx', 'up2db', stack=True,
-                   new_column_names=['Date', 'Index_Name', 'Level'])
+    # dc.upload_data('MSCI_indices', 'C:\\Users\\wb514964\\Desktop\\China factors.xlsx', 'up2db', stack=True,
+    #                new_column_names=['Date', 'Index_Name', 'Level'])
     # x = dc.download_data('MSCI_indices',['Date','Index_Name','Level'],
     #                  filter_attribute=['Index_Name'],
     #                  filter_values=['china', 'korea', 'brazil', 'india', 'russia', 'frontier'])
