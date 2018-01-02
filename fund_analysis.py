@@ -11,7 +11,8 @@ import statsmodels.api as sm
 from scipy.stats import spearmanr
 from scipy.stats import linregress
 from functools import reduce
-
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import Imputer
 
 class AnalysisTools:
     def __init__(self):
@@ -490,6 +491,24 @@ class AnalysisTools:
                 ran_corr = spearmanr(x, y, nan_policy='omit')[0]
                 exposures[fund + " " + factor] = [lin_corr, ran_corr, bet_param, pval, r2]
         exposures = exposures.transpose()
+        return exposures
+
+    def multi_factor_regression(self, funds, factors, window=30):
+        lin_reg = LinearRegression(fit_intercept=True)
+        output = factors.columns.tolist()
+        fund_names = funds.columns
+        exposures = pd.DataFrame(columns=fund_names, index=['R2'])
+        for fund in funds:
+            x = factors[-window:]
+            y = funds[fund][-window:]
+            z = pd.concat([x, y], axis=1).dropna()
+            x = z[factors.columns]
+            y = z.iloc[:, -1]
+            if len(z) < 30:
+                print('Warning: The regression on ' + fund + " has less than 30 observations")
+            regres = lin_reg.fit(x, y)
+            r2 = lin_reg.score(x, y)
+            exposures[fund] = r2
         return exposures
 
 if __name__ == '__main__':
