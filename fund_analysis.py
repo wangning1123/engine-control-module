@@ -18,6 +18,74 @@ class AnalysisTools:
     def __init__(self):
         self.x = 1
 
+    # ==========================================================================
+    #           CALCULATE ROLLING RETURN, TRACKING ERROR, AND INFORMATION RATIO
+    # ==========================================================================
+    
+	# Goal: calculate rolling return
+	# Input: dataframe (monthly return in percentage) and rolling window (number of month, default is 12)
+	def calcRollingExcTEIR(self, inputData, window=12):
+		import numpy as np
+		import pandas as pd
+
+		fundRet = inputData[inputData.columns[0]]
+		bmkRet  = inputData[inputData.columns[-1]]
+		excessRet = fundRet - bmkRet
+
+		rollingFund = fundRet.rolling(window=window, center=False).apply(lambda x: (np.prod(1+x/100)**(12/window)-1)*100)
+		rollingBmk = bmkRet.rolling(window=window, center=False).apply(lambda x: (np.prod(1+x/100)**(12/window)-1)*100)
+		excRollRet = rollingFund - rollingBmk
+
+		retMonthDiff     = fundRet.sub(bmkRet, axis = 0)
+		trRolling = pd.rolling_std(retMonthDiff,window = window) * pd.np.sqrt(12)
+
+		irRolling = excRollRet / trRolling
+
+		return excRollRet, trRolling, irRolling
+
+
+
+
+		# ================================================
+		#  CALCULATE TRANKING ERROR
+		# ================================================
+
+	def tr(self, inputData):
+		import numpy as np
+		import pandas as pd
+
+		fundRet       = inputData[inputData.columns[0]]
+		bmkRet        = inputData[inputData.columns[-1]]
+		retMonthDiff  = fundRet.sub(bmkRet, axis = 0)
+
+		tr = np.std(retMonthDiff) * np.sqrt(12)
+
+		return tr
+
+
+
+		# ================================================
+		#  CALCULATE EXCESS RETURN
+		# ================================================
+
+	def excRetAnn(self, inputData):
+		import numpy as np
+		import pandas as pd
+
+		fundRet       = inputData[inputData.columns[0]]
+		bmkRet        = inputData[inputData.columns[-1]]
+
+		countMon = len(fundRet.index)
+
+		compFundRet = (np.prod(1+fundRet/100)**(12/countMon)-1)*100
+		compBmkRet  = (np.prod(1+bmkRet/100)**(12/countMon)-1)*100
+
+		excRet  = compFundRet - compBmkRet
+
+
+		return excRet
+
+		
     @staticmethod
     def monthly_return(portfolio_level):
         m_returns = portfolio_level.pct_change()[1:]
