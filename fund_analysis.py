@@ -511,6 +511,107 @@ class AnalysisTools:
             exposures[fund] = r2
         return exposures
 
+    @staticmethod
+    def multi_factor_regression2(funds, factors, qualitative=None, benchmark_name='Benchmark', window=30,
+                                 dual_reg=False):
+        # ==========================================================
+        #    Define Dictionaries
+        # ==========================================================
+
+        if qualitative is None:
+            qualitative = pd.DataFrame()
+
+        if dual_reg == True:
+            TotalReturn_coefs = dict()
+            TotalReturn_tstats = dict()
+            TotalReturn_arsq = dict()
+
+        Excess_coefs = dict()
+        Excess_tstats = dict()
+        Excess_arsq = dict()
+
+        number_obs = dict()
+
+        for mgr in set(funds.columns):
+            y = funds[mgr]
+            x = factors
+            dataset = pd.concat([y, x], axis=1).dropna()
+
+            benchmark = dataset.loc[dataset.index, benchmark_name]
+
+            number_obs[mgr] = dataset.shape[0]
+            if dataset.shape[0] >= window:
+                Factors_list = list(set(factors.columns))
+
+                x = dataset[Factors_list]
+                Factors_list.remove(benchmark_name)
+                xex = dataset[Factors_list]
+
+                if dual_reg == True:
+                    x = sm.add_constant(x)
+                    y = dataset[mgr]
+                    model = sm.OLS(y, x)
+                    ols = model.fit()
+
+                    TotalReturn_coefs[mgr] = ols.params
+                    TotalReturn_tstats[mgr] = ols.tvalues
+                    if qualitative.empty:
+                        TotalReturn_arsq[mgr] = pd.Series(['nocategory', ols.rsquared_adj],
+                                                          index=pd.Index(['managertype', 'AdjustedRsquared']))
+                    else:
+                        TotalReturn_arsq[mgr] = pd.Series([qualitative.loc[mgr]['managertype'], ols.rsquared_adj],
+                                                          index=pd.Index(['managertype', 'AdjustedRsquared']))
+
+                xex = sm.add_constant(xex)
+                yex = dataset[mgr] - benchmark
+                modelex = sm.OLS(yex, xex)
+                olsex = modelex.fit()
+
+                Excess_coefs[mgr] = olsex.params
+                Excess_tstats[mgr] = olsex.tvalues
+                if qualitative.empty:
+                    Excess_arsq[mgr] = pd.Series(['nocategory', olsex.rsquared_adj],
+                                                 index=pd.Index(['managertype', 'AdjustedRsquared']))
+                else:
+                    Excess_arsq[mgr] = pd.Series([qualitative.loc[mgr]['managertype'], olsex.rsquared_adj],
+                                                 index=pd.Index(['managertype', 'AdjustedRsquared']))
+
+            else:
+                if dual_reg == True:
+                    TotalReturn_coefs[mgr] = -10000
+                    TotalReturn_tstats[mgr] = -10000
+                    TotalReturn_arsq[mgr] = -10000
+
+                Excess_coefs[mgr] = -10000
+                Excess_tstats[mgr] = -10000
+                Excess_arsq[mgr] = -10000
+
+        number_obs_df = pd.DataFrame(pd.Series(number_obs, name='numobs'))
+
+        Excess_coefs_df = pd.DataFrame(Excess_coefs).transpose()
+        for name in Excess_coefs_df.columns:
+            Excess_coefs_df.rename(columns={name: "%s%s" % (name, '_coef')}, inplace=True)
+        Excess_tstats_df = pd.DataFrame(Excess_tstats).transpose()
+        for name in Excess_tstats_df.columns:
+            Excess_tstats_df.rename(columns={name: "%s%s" % (name, '_tstat')}, inplace=True)
+        Excess_arsq_df = pd.DataFrame(Excess_arsq).transpose()
+        Overallex = pd.concat([Excess_arsq_df, Excess_coefs_df, Excess_tstats_df, number_obs_df], axis=1)
+
+        if dual_reg == True:
+            TotalReturn_coefs_df = pd.DataFrame(TotalReturn_coefs).transpose()
+            for name in TotalReturn_coefs_df.columns:
+                TotalReturn_coefs_df.rename(columns={name: "%s%s" % (name, '_coef')}, inplace=True)
+            TotalReturn_tstats_df = pd.DataFrame(TotalReturn_tstats).transpose()
+            for name in TotalReturn_tstats_df.columns:
+                TotalReturn_tstats_df.rename(columns={name: "%s%s" % (name, '_tstat')}, inplace=True)
+            TotalReturn_arsq_df = pd.DataFrame(TotalReturn_arsq).transpose()
+            OverallTR = pd.concat([TotalReturn_arsq_df, TotalReturn_coefs_df, TotalReturn_tstats_df, number_obs_df],
+                                  axis=1)
+        else:
+            OverallTR = pd.DataFrame()
+
+        return {'excess': Overallex, 'total': OverallTR}
+    
 
 if __name__ == '__main__':
     dc = data_management.DataConnect(path='C:\\Users\\wb514964\\Code\\em-equity\\database\\', database='EMEQ.db')
