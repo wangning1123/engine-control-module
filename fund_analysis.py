@@ -511,8 +511,7 @@ class AnalysisTools:
             exposures[fund] = r2
         return exposures
 
-        asd
-        
+
 if __name__ == '__main__':
     dc = data_management.DataConnect(path='C:\\Users\\wb514964\\Code\\em-equity\\database\\', database='EMEQ.db')
     at = AnalysisTools()
