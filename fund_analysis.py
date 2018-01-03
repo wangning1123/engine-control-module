@@ -543,7 +543,6 @@ class AnalysisTools:
             if dataset.shape[0] >= window:
                 Factors_list = list(set(factors.columns))
 
-
                 x = dataset[Factors_list]
                 Factors_list.remove(benchmark_name)
                 xex = dataset[Factors_list]
