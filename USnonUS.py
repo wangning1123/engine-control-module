@@ -168,7 +168,7 @@ if not os.path.exists(fundID_csv):
     fund_ID.to_csv(fundID_csv)
 
 
-sys.exit(0)
+# sys.exit(0)
 
 
 # calculated alpha assume 50/50 weight
