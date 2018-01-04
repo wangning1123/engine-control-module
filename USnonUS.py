@@ -91,7 +91,7 @@ Raw_nonus_24 = Raw_nonus.dropna(thresh=24, axis=1)
 # df_glob_36 = df_glob_raw.dropna(thresh=36, axis=1)
 
 
-# setup type 
+# setup type
 
 mgrtype   = list(set(Rawqualitative_us['managertype']))
 benchtype = [mgrtype[mgrtype.index('Benchmark')]]
@@ -100,7 +100,7 @@ mgrtype.remove(mgrtype[mgrtype.index('Benchmark')])
 captype_nonus = list(set(Rawqualitative_nonus['Cap']))
 captype_us    = list(set(Rawqualitative_us['Cap']))
 
-# remove small, mid funds in Non-US rawdata 
+# remove small, mid funds in Non-US rawdata
 
 nonus_smallcaps = Rawqualitative_nonus.loc[Rawqualitative_nonus['Cap'].isin(['SC', 'Small-Mid Cap'])]
 Raw_nonus_24.drop(list(nonus_smallcaps.index), axis=1, inplace = True, errors= 'ignore')
@@ -136,7 +136,7 @@ captype_nonus.remove(captype_nonus[captype_nonus.index('Benchmark')])
 captype_us.remove(captype_us[captype_us.index('Benchmark')])
 
 Raw_us_36.drop(bench_list_us,inplace=True,axis=1)
-Raw_nonus_24.drop(bench_list_nonus,inplace=True,axis=1)   
+Raw_nonus_24.drop(bench_list_nonus,inplace=True,axis=1)
 
 df_us = Raw_us_36
 df_nonus = Raw_nonus_24
@@ -146,17 +146,29 @@ df_nonus = Raw_nonus_24
     # ===================================
 
 
-# create column name for US*EAFE combination 
-column_list_name = list()
-fund_ID = list()
-for idx, us_name in enumerate(df_us.columns):
-    usID = idx
+#create fund ID and fund names
+fundID_csv = 'combUSnonUS_Name_CSV.csv'
 
-    for idy, nonus_name in enumerate(df_nonus.columns):
-        NonusID = idy
+if not os.path.exists(fundID_csv):
+    fund_ID = pd.DataFrame(columns=['combinedName','USname','nonUSname','fundID','USid','NonUSid'])
 
-        column_list_name.append(us_name + "x-" + nonus_name)
-        fund_ID.append(usID+'-'+NonusID)
+    for idx, us_name in enumerate(df_us.columns):
+        #print("Generating fundID for usFund: {0}".format(us_name))
+        for idy, nonus_name in enumerate(df_nonus.columns):
+            appendDict = {
+                'combinedName': us_name + "x" + nonus_name,
+                'USname': us_name,
+                'nonUSname': nonus_name,
+                'fundID': "US{0}-NonUS{1}".format(idx, idy),
+                'USid':idx,
+                'NonUSid':idy
+            }
+            fund_ID = fund_ID.append(appendDict, ignore_index=True)
+
+    fund_ID.to_csv(fundID_csv)
+
+
+sys.exit(0)
 
 
 # calculated alpha assume 50/50 weight
@@ -167,15 +179,14 @@ if (not os.path.exists(COMB_US_NONUS_FILE)) or (not os.path.exists(TYPE_FILE)):
     new_index = df_us.index.copy()
     df_combUSnonUS = pd.DataFrame(index=new_index, columns=column_list_name)
     typeUSnonUS = dict()
-    for idx, us_name in enumerate(df_us.columns):
-        # print('Computing {0} of {1}'.format(idx, len(df_us.columns)))
-        usID = idx
-        for idy, nonus_name in df_nonus.columns:
-            NonusID = idy
 
-            combined_name = us_name + "x-" + nonus_name
+    for idx, us_name in enumerate(df_us.columns):
+
+        for idy, nonus_name in enumerate(df_nonus.columns):
+
+            combined_name = us_name + "x" + nonus_name
             typeUSnonUS[combined_name] = "US-" + Rawqualitative_us ['managertype'][us_name] + "x Non_US-" + Rawqualitative_nonus ['managertype'][nonus_name]
-            fund_ID[combined_name] = "US-" + usID+'- NonUS'+NonusID
+
 
             for cdate in df_us.index:
                 df_combUSnonUS[combined_name][cdate] = (df_us[us_name][cdate] + df_nonus[nonus_name][cdate]) / 2.0
