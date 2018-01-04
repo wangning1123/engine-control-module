@@ -1,3 +1,5 @@
+#
+# test
 import numpy as np
 import pandas as pd
 import os
@@ -39,7 +41,8 @@ distYr = pd.Timestamp ("2014-01-01 00:00:00")
 
 
 ## vintage year
-vinYr = pd.Timestamp ("2014-01-01 00:00:00")
+vinYrList = [pd.Timestamp ("2014-01-01 00:00:00"),pd.Timestamp ("1996-01-01 00:00:00"), pd.Timestamp ("2007-01-01 00:00:00")]
+
 
 # ===================================
 #           READ IN DATA
@@ -144,14 +147,19 @@ df_nonus = Raw_nonus_24
 
 # create column name for US*EAFE combination 
 column_list_name = list()
-for us_name in df_us.columns:
-    for nonus_name in df_nonus.columns:
-        column_list_name.append(us_name + "x" + nonus_name)
+fund_ID = list()
+for idx, us_name in enumerate(df_us.columns):
+    usID = idx
 
+    for idy, nonus_name in enumerate(df_nonus.columns):
+        NonusID = idy
+
+        column_list_name.append(us_name + "x-" + nonus_name)
+        fund_ID.append(usID+'-'+NonusID)
 
 
 # calculated alpha assume 50/50 weight
-COMB_US_NONUS_FILE = r'result_small.pickle'
+# COMB_US_NONUS_FILE = r'result_small.pickle'
 TYPE_FILE = r'typeUSnonUS.pickle'
 
 if (not os.path.exists(COMB_US_NONUS_FILE)) or (not os.path.exists(TYPE_FILE)):
@@ -159,10 +167,14 @@ if (not os.path.exists(COMB_US_NONUS_FILE)) or (not os.path.exists(TYPE_FILE)):
     df_combUSnonUS = pd.DataFrame(index=new_index, columns=column_list_name)
     typeUSnonUS = dict()
     for idx, us_name in enumerate(df_us.columns):
-        print('Computing {0} of {1}'.format(idx, len(df_us.columns)))
-        for nonus_name in df_nonus.columns:
-            combined_name = us_name + "x" + nonus_name
+        # print('Computing {0} of {1}'.format(idx, len(df_us.columns)))
+        usID = idx
+        for idy, nonus_name in df_nonus.columns:
+            NonusID = idy
+
+            combined_name = us_name + "x-" + nonus_name
             typeUSnonUS[combined_name] = "US-" + Rawqualitative_us ['managertype'][us_name] + "x Non_US-" + Rawqualitative_nonus ['managertype'][nonus_name]
+            fund_ID[combined_name] = "US-" + usID+'- NonUS'+NonusID
 
             for cdate in df_us.index:
                 df_combUSnonUS[combined_name][cdate] = (df_us[us_name][cdate] + df_nonus[nonus_name][cdate]) / 2.0
@@ -212,7 +224,7 @@ for key in typeCounter:
 
 
     # ===============================================================
-    #           CALCULATE ALPHA, TRACKING ERROR, INFORMATION RATIO
+    #   CALCULATE ROLLING ALPHA, TRACKING ERROR, INFORMATION RATIO
     # ===============================================================
 
 df_bmk = pd.concat([benchmark_nonus,benchmark_us], axis = 1)
@@ -224,7 +236,7 @@ if not os.path.exists(COMBINED_FILE):
     combinedDict = dict()
     print("Generating combinedDict ... ")
     for i in df_combUSnonUS.columns:
-        df_input = pd.concat([df_combUSnonUS[i], df_combBmk], axis=1)
+        df_input = pd.concat([df_combUSnonUS[i], df_combBmk], axis=1).dropna()
 
 
         output = {
@@ -706,9 +718,9 @@ for group in groupList:
         print(u"Processing {0}... ".format(group))
         combinedDictTE = dict()
         for i in df_funds.columns:
-            df_input = pd.concat([df_funds[i], df_combBmk], axis=1)
+            df_input = pd.concat([df_funds[i], df_combBmk], axis=1).dropna()
 
-            combinedDictTE[i] = trackingError(df_input)
+            combinedDictTE[i] = tr(df_input)
 
 
 
@@ -748,47 +760,53 @@ for group in groupList:
 #     CALCULATE EXCESS RETURN TE IR SINCE VINTAGE YEAR or SINCE INCEPTION
 # ========================================================================
 
-df_bmk = pd.concat([benchmark_nonus,benchmark_us], axis = 1)
 df_combBmk = pd.DataFrame( data = df_bmk.mean(axis=1), columns = ['USnonUSavgBmk'])
+df_bmk = pd.concat([benchmark_nonus,benchmark_us], axis = 1)
 
-perfStat_FILE = 'excRetTEIR_sinceYr{0}_Mth{1}.pickle'.format(vinYr.year, vinYr.month)
+# df_combUSnonUS = df_combUSnonUS.iloc[:,0:5]
 
-if not os.path.exists(perfStat_FILE):
+for vinYr in vinYrList:
 
-    print("Calculating Excess Return TE IR  ... ")
+    perfStat_FILE = 'perfStat_sinceYr{0}_Mth{1}.pickle'.format(vinYr.year, vinYr.month)
 
-    if vinYr == '':
-        df_vinYrfunds = df_combUSnonUS
-        print('since inception')
-    else:
+    if not os.path.exists(perfStat_FILE):
+
+        print("Calculating Excess Return TE IR  ... ")
+
+
         df_vinYrfunds = df_combUSnonUS[df_combUSnonUS.index >= pd.Timestamp(vinYr)]
         print ('since vintage year_{0}'.format(vinYr.year))
 
-    tcolumns = ['type', 'excRet', 'TE', 'IR', 'VintageYrMon']
-    df_perfStatData = pd.DataFrame(index =df_vinYrfunds.columns,  columns= tcolumns)
+        tcolumns = ['type', 'excRet', 'TE', 'IR'] #, 'VintageYr'
+        df_perfStatData = pd.DataFrame(index =df_vinYrfunds.columns,  columns= tcolumns)
+
+        totalVinYrFunds = len(df_vinYrfunds.columns)
+        for idx, i in enumerate(df_vinYrfunds.columns):
+            if idx % 1000 == 0 :
+                print("Working on vinYrfunds {0}, {1} of {2}".format(i, idx, totalVinYrFunds))
+            df_input = pd.concat([df_vinYrfunds[i], df_combBmk], axis=1).dropna()
+            # print (df_input)
+
+            df_perfStatData.loc[i,'TE']      = tr(df_input)
+            df_perfStatData.loc[i, 'excRet'] = excRetAnn(df_input)
+            df_perfStatData.loc[i, 'IR']     = excRetAnn(df_input)/tr(df_input)
+            df_perfStatData.loc[i, 'type']   = typeUSnonUS[i]
+            # df_perfStatData.loc[i, 'VintageYr'] = df_vinYrfunds.first_valid_index().year
 
 
-    for i in df_vinYrfunds.columns:
-        df_input = pd.concat([df_vinYrfunds[i], df_combBmk], axis=1)
+    # write to CSV, and pickle
+        calcOut = open(perfStat_FILE, 'wb')
+        pickle.dump(df_perfStatData, calcOut)
 
-        df_perfStatData.loc[i,'TE']      = tr(df_input)
-        df_perfStatData.loc[i, 'excRet'] = excRetAnn(df_input)
-        df_perfStatData.loc[i, 'IR']     = excRetAnn(df_input)/tr(df_input)
-
-        df_perfStatData.loc[i, 'type']      = typeUSnonUS[i]
-        df_perfStatData.loc[i, 'VintageYr'] = df_vinYrfunds.first_valid_index().year
+        perfStat_csv = 'perfStat_yr{0}mth{1}_CSV.csv'.format(vinYr.year, vinYr.month)
+        df_perfStatData.to_csv(perfStat_csv)
 
 
-# write to CSV, and pickle
-    calcOut = open(perfStat_FILE, 'wb')
-    pickle.dump(df_perfStatData, calcOut)
-
-
-else:
-    print("Loading from {0} ... ".format(perfStat_FILE))
-    calcIn = open(perfStat_FILE, 'rb')
-    df_perfStatData = pickle.load(calcIn)
-    calcIn.close()
+    else:
+        print("Loading from {0} ... ".format(perfStat_FILE))
+        calcIn = open(perfStat_FILE, 'rb')
+        df_perfStatData = pickle.load(calcIn)
+        calcIn.close()
 
 
 
