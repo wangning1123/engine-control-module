@@ -36,10 +36,13 @@ epsilon = 0.00001
 
 distYr = pd.Timestamp ("2014-01-01 00:00:00")
 
-
 ## vintage year
 vinYrList = [pd.Timestamp ("2014-01-01 00:00:00"),pd.Timestamp ("1996-01-01 00:00:00"), pd.Timestamp ("2007-01-01 00:00:00")]
 
+## attribution sample date
+dateOptions = [pd.Timestamp('2009-01-01'), pd.Timestamp('2012-01-01'), pd.Timestamp('2016-01-01')]
+
+TARGET_QUARTILE = 1
 
 # ===================================
 #           READ IN DATA
@@ -134,143 +137,213 @@ fcmb.close()
 
 # US Excess Return
 usRet_FILE = 'usRetDict_rolling_{0}.pickle'.format(rollingWindows)
-    if not os.path.exists(usRet_FILE):
-        usRetDict = dict()
-        print("Calc US fund Exc Ret... ")
-        for i in df_us.columns:
-            df_input = pd.concat([df_us[i], benchmark_us], axis=1).dropna()
+if not os.path.exists(usRet_FILE):
+    usRetDict = dict()
+    print("Calc US fund Exc Ret... ")
+    for i in df_us.columns:
+        df_input = pd.concat([df_us[i], benchmark_us], axis=1).dropna()
 
-            output = {
-                'name': '',
-                'type': '',
-                'excRet': [],
-                'TE': [],
-                'IR': []
-            }
+        output = {
+            'name': '',
+            'type': '',
+            'excRet': [],
+            'TE': [],
+            'IR': []
+        }
 
-            output['type'] = Rawqualitative_us ['managertype'][i]
-            output['name'] = i
+        output['type'] = Rawqualitative_us ['managertype'][i]
+        output['name'] = i
 
-            # calculate RollingReturn, TE, and IR
+        # calculate RollingReturn, TE, and IR
 
-            excRet, TE, IR = calcRollingExcTEIR(df_input, rollingWindows)
-            output['excRet'] = excRet
-            output['TE'] = TE
-            output['IR'] = IR
-            usRetDict[i] = output
+        excRet, TE, IR = calcRollingExcTEIR(df_input, rollingWindows)
+        output['excRet'] = excRet
+        output['TE'] = TE
+        output['IR'] = IR
+        usRetDict[i] = output
 
-        foutput = open(usRet_FILE, 'wb')
-        pickle.dump(usRetDict, foutput)
-        foutput.close()
-    else:
-        print('Loading usRet from file ... ')
-        fUSret = open(usRet_FILE, 'rb')
-        usRetDict = pickle.load(fUSret)
-        fUSret.close()
+    foutput = open(usRet_FILE, 'wb')
+    pickle.dump(usRetDict, foutput)
+    foutput.close()
+else:
+    print('Loading usRet from file ... ')
+    fUSret = open(usRet_FILE, 'rb')
+    usRetDict = pickle.load(fUSret)
+    fUSret.close()
 
-        print('Calculate US Alpha, TE and IR Done.')
+    print('Calculate US Alpha, TE and IR Done.')
 
 # Non-US excess return
 nonusRet_FILE = 'nonusRetDict_rolling_{0}.pickle'.format(rollingWindows)
-    if not os.path.exists(nonusRet_FILE):
-        nonusRetDict = dict()
-        print("Calc Non-US fund Exc Ret... ")
-        for i in df_nonus.columns:
-            df_input = pd.concat([df_nonus[i], benchmark_nonus], axis=1).dropna()
+if not os.path.exists(nonusRet_FILE):
+    nonusRetDict = dict()
+    print("Calc Non-US fund Exc Ret... ")
+    for i in df_nonus.columns:
+        df_input = pd.concat([df_nonus[i], benchmark_nonus], axis=1).dropna()
 
-            output = {
-                'name': '',
-                'type': '',
-                'excRet': [],
-                'TE': [],
-                'IR': []
-            }
+        output = {
+            'name': '',
+            'type': '',
+            'excRet': [],
+            'TE': [],
+            'IR': []
+        }
 
-            output['type'] = Rawqualitative_nonus ['managertype'][i]
-            output['name'] = i
+        output['type'] = Rawqualitative_nonus ['managertype'][i]
+        output['name'] = i
 
-            # calculate RollingReturn, TE, and IR
+        # calculate RollingReturn, TE, and IR
 
-            excRet, TE, IR = calcRollingExcTEIR(df_input, rollingWindows)
-            output['excRet'] = excRet
-            output['TE'] = TE
-            output['IR'] = IR
-            nonusRetDict[i] = output
+        excRet, TE, IR = calcRollingExcTEIR(df_input, rollingWindows)
+        output['excRet'] = excRet
+        output['TE'] = TE
+        output['IR'] = IR
+        nonusRetDict[i] = output
 
-        foutput = open(nonusRet_FILE, 'wb')
-        pickle.dump(nonusRetDict, foutput)
-        foutput.close()
-    else:
-        print('Loading non-us Return from file ... ')
-        fnonUSret = open(nonusRet_FILE, 'rb')
-        nonusRetDict = pickle.load(fnonUSret)
-        fnonUSret.close()
+    foutput = open(nonusRet_FILE, 'wb')
+    pickle.dump(nonusRetDict, foutput)
+    foutput.close()
+else:
+    print('Loading non-us Return from file ... ')
+    fnonUSret = open(nonusRet_FILE, 'rb')
+    nonusRetDict = pickle.load(fnonUSret)
+    fnonUSret.close()
 
-        print('Calculate non-US Alpha, TE and IR Done.')
+    print('Calculate non-US Alpha, TE and IR Done.')
 
 # ==================
 #   Output table
 # ==================
 
 
+# load quartile info
+print("Loading from quartile file")
 
-    # create fund ID and fund names
-    fundID_csv = 'combUSnonUS_RetAttribution_CSV.csv'
+QuartileFile = '4_quartile_rolling_36.pickle'
+fin = open(QuartileFile, 'rb')
+quartileResult = pickle.load(fin)
+fin.close()
 
-    if not os.path.exists(fundID_csv):
+# create fund ID and fund names
+RetAttribution_FILE = 'combUSnonUS_RetAttribution.pickle'
+RetAttribution_NAME = 'combUSnonUS_RetAttribution'
+RetAttributionDict = dict()
+
+if not os.path.exists(RetAttribution_FILE):
+    for cdate in dateOptions:
+        print ('calculating {0} excess return attribution...'.format(cdate))
         fund_ID = pd.DataFrame(columns=['combinedName', 'USname', 'nonUSname', 'fundID',  \
-                                       'USid', 'NonUSid','usRet', 'nonUSRet','combUSnonUSret'])
+                                       'USid', 'NonUSid','usRet', 'nonUSRet','combUSnonUSret', \
+                                        'usRetSign', 'nonusRetSign', 'combUSnonUSretSign', 'quartile'])
 
         for idx, us_name in enumerate(df_us.columns):
             # print("Generating fundID for usFund: {0}".format(us_name))
             for idy, nonus_name in enumerate(df_nonus.columns):
-                appendDict = {
-                    'combinedName': us_name + "x" + nonus_name,
-                    'USname': us_name,
-                    'nonUSname': nonus_name,
-                    'fundID': "US{0}-NonUS{1}".format(idx, idy),
-                    'USid': idx,
-                    'NonUSid': idy,
+                try:
+                    combinedName = us_name + "x" + nonus_name
+                    appendDict = {
+                        'combinedName':combinedName,
+                        'USname': us_name,
+                        'nonUSname': nonus_name,
+                        'fundID': "US{0}-NonUS{1}".format(idx, idy),
+                        'USid': idx,
+                        'NonUSid': idy,
 
-                    'usRet':[],
-                    'nonUSRet':[],
-                    'combUSnonUSret':[],
-                    'usRetSign':[],
-                    'nonUSRetSign':[],
-                    'combUSnonUSretSign':[]
+                        'usRet':[],
+                        'nonUSRet':[],
+                        'combUSnonUSret':[],
+                        'usRetSign':[],
+                        'nonusRetSign':[],
+                        'combUSnonUSretSign':[],
+                        'quartile': 0
+                    }
+                    #df_funds = df_combUSnonUS[df_combUSnonUS.index > pd.Timestamp('2009-12-31')]
 
-                }
-                appendDict['usRet']          = usRetDict['excRet'][us_name]
-                appendDict['nonusRet']       = nonusRetDict['excRet'][nonus_name]
-                appendDict['combUSnonUSret'] = combinedDict['excRet'][combinedName]
+                    if (cdate not in usRetDict[us_name]['excRet']) or \
+                            (cdate not in nonusRetDict[nonus_name]['excRet']) or \
+                            (cdate not in combinedDict[combinedName]['excRet']):
+                        #print ('{0} not exist at {1}'.format(combinedName, cdate))
+                        continue
 
-                if usRetDict['excRet'][us_name] >= 0:
-                    appendDict['usRetSign'] = 'Pos'
-                else:
-                    appendDict['usRetSign'] = 'Neg'
+                    appendDict['usRet']          = usRetDict[us_name]['excRet'][cdate]
+                    appendDict['nonUSRet']       = nonusRetDict[nonus_name]['excRet'][cdate]
+                    appendDict['combUSnonUSret'] = combinedDict[combinedName]['excRet'][cdate]
+                    appendDict['quartile']       = quartileResult['excRet'][combinedName][cdate]
+
+                    if usRetDict[us_name]['excRet'][cdate] > 0:
+                        appendDict['usRetSign'] = 'Pos'
+                    elif np.isnan(usRetDict[us_name]['excRet'][cdate]):
+                        appendDict['usRetSign'] = 'NA'
+                    else:
+                        appendDict['usRetSign'] = 'Neg'
+
+                    if nonusRetDict[nonus_name]['excRet'][cdate] > 0:
+                        appendDict['nonusRetSign'] = 'Pos'
+                    elif np.isnan(nonusRetDict[nonus_name]['excRet'][cdate] ):
+                        appendDict['nonusRetSign'] = 'NA'
+                    else:
+                        appendDict['nonusRetSign'] = 'Neg'
+
+                    if combinedDict[combinedName]['excRet'][cdate] > 0:
+                        appendDict['combUSnonUSretSign'] = 'Pos'
+                    elif np.isnan(combinedDict[combinedName]['excRet'][cdate]):
+                        appendDict['combUSnonUSretSign'] = 'NA'
+                    else:
+                        appendDict['combUSnonUSretSign'] = 'Neg'
 
 
-                if nonusRetDict['excRet'][nonus_name] >= 0:
-                    appendDict['nonusRetSign'] = 'Pos'
-                else:
-                    appendDict['nonusRetSign'] = 'Neg'
+                    fund_ID = fund_ID.append(appendDict, ignore_index=True)
+                except Exception as e:
+                    print("Error on {0} {1}".format(us_name, nonus_name))
+                    raise e
 
-                if combinedDict['excRet'][combinedName] >= 0:
-                    appendDict['combUSnonUSretSign'] = 'Pos'
-                else:
-                    appendDict['combUSnonUSretSign'] = 'Neg'
+  # color-code excel output
 
+        # fund_ID.to_pickle(RetAttribution_FILE)
+        fund_ID = fund_ID.dropna(axis=0, how='any')
+        RetAttributionDict[cdate] = fund_ID
 
-                fund_ID = fund_ID.append(appendDict, ignore_index=True)
+        # Saves CSV
+        date_str = "{0}_{1:02d}_{2:02d}".format(cdate.year, cdate.month, cdate.day)
+        csv_filename = RetAttribution_NAME + "_" + date_str + ".csv"
+        fund_ID.to_csv(csv_filename)
 
+    fout = open(RetAttribution_FILE, 'wb')
+    pickle.dump(RetAttributionDict, fout)
+    fout.close()
 
-        fund_ID.to_pickle(lowTE_FILE_pickle)
+else:
+    fin = open(RetAttribution_FILE, 'rb')
+    RetAttributionDict = pickle.load(fin)
+    fin.close()
 
-        #example_Print = fund_ID[]
-        #selectDate = fund_ID[target][quartileResult[target].index >= quarStartMth]
+# Summary table
+SUMMARIZE_CSV = "RetAttributionSummarize.csv"
+dfAttrSum = pd.DataFrame(columns = ['US+NonUS+Comb+','US+NonUS-Comb+','US-NonUS+Comb+'], index = dateOptions)
+for cdate in dateOptions:
+    countDict = {
+        'US+NonUS+Comb+': 0,
+        'US+NonUS-Comb+': 0,
+        'US-NonUS+Comb+': 0,
+        'US-NonUS-Comb+': 0,
+        'US+NonUS+Comb-': 0,
+        'US+NonUS-Comb-': 0,
+        'US-NonUS+Comb-': 0,
+        'US-NonUS-Comb-': 0
+    }
+    dfAttr = RetAttributionDict[cdate]
+    for index, row in dfAttr.iterrows():
+        combinedName = row['combinedName']
+        if quartileResult['excRet'][combinedName][cdate] != TARGET_QUARTILE:
+            continue
+        if row['usRetSign'] == 'Pos' and row['nonusRetSign'] =='Pos' and row['combUSnonUSretSign'] == 'Pos':
+            countDict['US+NonUS+Comb+'] += 1
+        elif row['usRetSign'] == 'Pos' and row['nonusRetSign'] =='Neg' and row['combUSnonUSretSign'] == 'Pos':
+            countDict['US+NonUS-Comb+'] += 1
+        elif row['usRetSign'] == 'Neg' and row['nonusRetSign'] =='Pos' and row['combUSnonUSretSign'] == 'Pos':
+            countDict['US-NonUS+Comb+'] += 1
 
-        #fund_ID.to_csv(fundID_csv)
-
-
-
+    for column in dfAttrSum.columns:
+        dfAttrSum[column][cdate] = countDict[column]
+dfAttrSum.to_csv(SUMMARIZE_CSV)
 
